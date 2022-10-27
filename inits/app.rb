@@ -47,30 +47,7 @@ class MainApp < Sinatra::Base
 
 
   configure :development do
-    # in production environment, we use nginx's rewrite module for following url conversion
     register Sinatra::Reloader
-    get %r{/js/v\d+/libs/(.+)} do |m|
-      send_file("views/js/libs/#{m}")
-    end
-
-    get %r{/js/v\d+/(.+)\.js$} do |m|
-      # Sends /views/js/*.js if available, otherwise compile /views/js/*.coffee
-      # if you updated /views/js/*.coffee, you have to delete /views/js/*.js to reflect the change
-      content_type "application/javascript"
-      js = if m.start_with?("foundation") then
-        # used for debugging from gem
-        "#{Gem.loaded_specs['zurb-foundation'].full_gem_path}/js/foundation/#{m}.js"
-      else
-        "views/js/#{m}.js"
-      end
-      redirect "/js/#{m}.js" if not File.exist?(js) # pass to Rack::Coffee
-      send_file(js)
-    end
-
-    get %r{/css/v\d+/(.+)\.css$} do |m|
-      redirect "/css/#{m}.css" # pass to Sass::Plugin::Rack
-    end
-
   end
   COMMENTS_PER_PAGE = 16
   def self.comment_routes(namespace,klass,klass_comment,private=false)
@@ -79,8 +56,6 @@ class MainApp < Sinatra::Base
       thread = klass[params[:id].to_i]
       return [] if thread.nil?
       chunks = thread.comments_dataset.order(Sequel.desc(:created_at),Sequel.desc(:id)).paginate(page,COMMENTS_PER_PAGE)
-      uidmap = {}
-      
       tsym = [:name,:title].find{|s|thread.respond_to?(s)}
       tname = tsym && thread.send(tsym)
 
@@ -141,10 +116,18 @@ class MainApp < Sinatra::Base
       attached_base = File.join(CONF_STORAGE_DIR,"attached",namespace)
       attached = klass_attached[params[:id].to_i]
       halt 404 if attached.nil?
-      send_file(File.join(attached_base,attached.path),disposition:nil)
+
+      # for Content-Type header
+      ext = attached.orig_name[/\.(\w+)$/, 1]
+      if ext == 'js'
+        send_file(File.join(attached_base,attached.path), disposition:nil, type: :js)
+      end
+
+      send_file(File.join(attached_base,attached.path), disposition:nil)
     end
+    # ajaxを使うように変更したので↓は不要
     # 返信を Content-Type: text/html で返す必要があるので /api/ の route には置かない
-    post "/#{namespace}/attached/:id", private:true do
+    post "/api/#{namespace}/attached/:id", private:true do
       item = klass[params[:id].to_i]
       attached =  if params[:attached_id] then
                     item.attacheds_dataset.first(id:params[:attached_id])
@@ -189,9 +172,9 @@ class MainApp < Sinatra::Base
         logger.warn e.message
         $stderr.puts e.message
         FileUtils.rm(target_file,force:true) unless attached
-        {_error_:"送信失敗"}
+        error_response('送信失敗')
       end
-      "<div id='response'>#{res.to_json}</div>"
+      res
     end
   end
 end

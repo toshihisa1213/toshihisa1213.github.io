@@ -1,14 +1,14 @@
 FROM centos:7
 
 # Basic Package Install
-RUN curl --silent --location https://rpm.nodesource.com/setup_6.x | bash -
+RUN curl --silent --location https://rpm.nodesource.com/setup_8.x | bash -
 RUN yum -y update && yum -y install \
       bzip2 gcc-c++ patch \
       epel-release \
       ruby-devel ruby \
       openssl-devel \
       readline-devel \
-      sqlite-devel \ 
+      sqlite-devel \
       ImageMagick-devel \
       postgresql \
       postgresql-server \
@@ -38,7 +38,7 @@ RUN git clone --depth 1 https://github.com/pjmtdw/kagetra.git
 WORKDIR /home/kagetra/kagetra
 
 RUN rbenv local 2.4.0
-RUN bash -lc "gem install bundler &&bundle install --path .vendor/bundle"
+RUN bash -lc "gem install bundler && bundle install --path .vendor/bundle"
 RUN npm install coffee-script@1.6.3 requirejs bower && \
     ./node_modules/bower/bin/bower install
 
@@ -47,8 +47,7 @@ RUN cp conf.rb.sample conf.rb && \
     sed -i -e '/^CONF_DB_PASSWORD /{s/<pass>/kagetra/}' conf.rb &&\
     sed -i -e '/^CONF_DB_HOST /{s/<host>/localhost/}' conf.rb &&\
     sed -i -e '/^CONF_DB_PORT /{s/port/5432/}' conf.rb &&\
-    sed -i -e '/^CONF_DB_DATABASE /{s/<db>/kagetra/}' conf.rb &&\
-    sed -i -e '/^CONF_DB_OSM_DATABASE /{s/"<osm_db>"/nil/}' conf.rb
+    sed -i -e '/^CONF_DB_DATABASE /{s/<db>/kagetra/}' conf.rb
 
 RUN sed -i -e '/^add_import_path/{s/#{RUBY_VERSION}/2.4.0/}' deploy/compass_conf.rb
 RUN bash -lc "cd deploy && make"
